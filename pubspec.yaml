@@ -1,6 +1,6 @@
 name: rivium_auth
 description: Rivium Auth for Flutter - sign-in for your app's users (anonymous, Apple, Google, e-mail, magic link, Telegram) with a user token every Rivium SDK accepts.
-version: 0.1.0
+version: 0.1.1
 homepage: https://rivium.co
 repository: https://github.com/Rivium-co/rivium_auth_flutter_sdk
 issue_tracker: https://github.com/Rivium-co/rivium_auth_flutter_sdk/issues

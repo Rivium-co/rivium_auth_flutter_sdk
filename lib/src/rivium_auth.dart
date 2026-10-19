@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'exception.dart';
 import 'models.dart';
 import 'storage.dart';
+import 'version.dart';
 
 /// Returns the signed-in user's Rivium user token, or null when no one is
 /// signed in. The type the other Rivium SDKs accept as `tokenProvider`.
@@ -582,6 +583,7 @@ class RiviumAuth {
       {Map<String, dynamic>? body, String? bearer}) async {
     final req = http.Request(method, Uri.parse('$_baseUrl$path'))
       ..headers['x-api-key'] = _apiKey
+      ..headers['x-rivium-sdk'] = riviumAuthSdkHeader
       ..headers['accept'] = 'application/json';
     if (bearer != null) req.headers['authorization'] = 'Bearer $bearer';
     if (body != null) {

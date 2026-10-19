@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:rivium_auth/rivium_auth.dart';
+import 'package:rivium_auth/src/version.dart';
 
 /// A fake Rivium Auth server: records requests and answers from [handler].
 class FakeServer {
@@ -397,6 +399,25 @@ void main() {
       expect(m.anonymous, isTrue);
       expect(m.apple, isFalse);
       expect(m.telegramBot, 'my_bot');
+    });
+  });
+
+  group('sdk header', () {
+    test('every request carries X-Rivium-SDK: auth-flutter/<version>', () async {
+      server.handler = (req) async => json(server.session());
+      final a = await auth();
+      await a.signInAnonymously();
+      expect(server.requests, isNotEmpty);
+      for (final r in server.requests) {
+        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.1.1');
+      }
+    });
+
+    test('the version constant matches pubspec.yaml', () {
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      final version = RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(pubspec)!.group(1);
+      expect(riviumAuthSdkVersion, version);
+      expect(riviumAuthSdkHeader, 'auth-flutter/$version');
     });
   });
 }

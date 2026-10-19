@@ -24,7 +24,7 @@
 
 ```yaml
 dependencies:
-  rivium_auth: ^0.1.0
+  rivium_auth: ^0.1.1
 ```
 
 Or run:
