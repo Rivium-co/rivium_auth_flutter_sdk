@@ -409,7 +409,7 @@ void main() {
       await a.signInAnonymously();
       expect(server.requests, isNotEmpty);
       for (final r in server.requests) {
-        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.1.1');
+        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.2.0');
       }
     });
 

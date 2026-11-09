@@ -188,6 +188,19 @@ class RiviumAuth {
     return _refresh();
   }
 
+  /// The access token with its decoded fields, like Firebase's
+  /// `getIdTokenResult()`: [RiviumTokenResult.claims] holds the custom claims
+  /// your server set (`setCustomUserClaims`), for example to show a "Pro"
+  /// badge. Null when no one is signed in.
+  ///
+  /// Pass `forceRefresh: true` right after your server changed the claims, to
+  /// get them without waiting for the next renewal (at most an hour). For
+  /// display only: access is decided on the server.
+  Future<RiviumTokenResult?> getTokenResult({bool forceRefresh = false}) async {
+    final token = await getToken(forceRefresh: forceRefresh);
+    return token == null ? null : RiviumTokenResult.fromToken(token);
+  }
+
   Duration get _effectiveMargin {
     final half = _accessLifetime ~/ 2;
     return _refreshMargin < half ? _refreshMargin : half;
@@ -286,7 +299,8 @@ class RiviumAuth {
     required String idToken,
     required String rawNonce,
   }) =>
-      _sessionCall('POST', '/v1/google', _social(idToken, rawNonce, null, null));
+      _sessionCall(
+          'POST', '/v1/google', _social(idToken, rawNonce, null, null));
 
   /// Adds Sign in with Apple to the signed-in user (typically anonymous); the
   /// user keeps its id. Throws [RiviumProviderAlreadyLinkedException] when
@@ -308,8 +322,8 @@ class RiviumAuth {
     required String idToken,
     required String rawNonce,
   }) =>
-      _sessionCall('POST', '/v1/link/google',
-          _social(idToken, rawNonce, null, null),
+      _sessionCall(
+          'POST', '/v1/link/google', _social(idToken, rawNonce, null, null),
           signedIn: true);
 
   /// Gives the signed-in user (typically anonymous) an e-mail and password;
@@ -318,8 +332,8 @@ class RiviumAuth {
     required String email,
     required String password,
   }) =>
-      _sessionCall('POST', '/v1/link/password',
-          {'email': email, 'password': password},
+      _sessionCall(
+          'POST', '/v1/link/password', {'email': email, 'password': password},
           signedIn: true);
 
   /// Creates an e-mail + password account. When the project requires a
@@ -362,9 +376,9 @@ class RiviumAuth {
 
   /// Sets a new password with the token from the reset link. Ends every
   /// session of that user; it does not sign in.
-  Future<void> resetPassword(String token, String newPassword) => _send(
-      'POST', '/v1/password/reset',
-      body: {'token': token, 'password': newPassword});
+  Future<void> resetPassword(String token, String newPassword) =>
+      _send('POST', '/v1/password/reset',
+          body: {'token': token, 'password': newPassword});
 
   /// Confirms the e-mail with the token from the confirmation link.
   Future<void> verifyEmail(String token) async {
@@ -407,7 +421,8 @@ class RiviumAuth {
 
   /// Loads the signed-in user from the server and updates [currentUser].
   Future<RiviumAuthUser> getMe() async {
-    final user = RiviumAuthUser.fromJson(_asMap(await _authed('GET', '/v1/me')));
+    final user =
+        RiviumAuthUser.fromJson(_asMap(await _authed('GET', '/v1/me')));
     await _setUser(user);
     return user;
   }
@@ -460,7 +475,8 @@ class RiviumAuth {
 
   /// Makes [t] the session, saves it, loads the user, and ends the session it
   /// replaces on the server.
-  Future<RiviumAuthUser> _startSession(_Tokens t, {RiviumAuthUser? known}) async {
+  Future<RiviumAuthUser> _startSession(_Tokens t,
+      {RiviumAuthUser? known}) async {
     final previous = _refreshToken;
     _generation++;
     _refreshing = null;
@@ -518,8 +534,8 @@ class RiviumAuth {
         return;
       }
       _refreshToken = refresh;
-      _user = RiviumAuthUser.fromJson(
-          jsonDecode(userJson) as Map<String, dynamic>);
+      _user =
+          RiviumAuthUser.fromJson(jsonDecode(userJson) as Map<String, dynamic>);
     } catch (e) {
       // Unreadable storage (for example after a backup restore to a new
       // device): start signed out.
@@ -600,8 +616,8 @@ class RiviumAuth {
       status = res.statusCode;
       headers = res.headers;
     } catch (e) {
-      throw RiviumAuthException(RiviumAuthErrorCode.networkError,
-          'Rivium Auth could not be reached',
+      throw RiviumAuthException(
+          RiviumAuthErrorCode.networkError, 'Rivium Auth could not be reached',
           cause: e);
     }
 
@@ -681,6 +697,7 @@ class _Tokens {
       throw RiviumAuthException(
           RiviumAuthErrorCode.unknown, 'Unexpected session from Rivium Auth');
     }
-    return _Tokens(access, Duration(seconds: expiresIn.toInt()), refresh, userId);
+    return _Tokens(
+        access, Duration(seconds: expiresIn.toInt()), refresh, userId);
   }
 }

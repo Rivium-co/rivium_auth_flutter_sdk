@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://rivium.co">
-    <img src="https://rivium.co/logo.png" alt="Rivium" width="120" />
+    <img src="https://rivium.co/icon.svg" alt="Rivium" width="120" />
   </a>
 </p>
 
@@ -11,7 +11,6 @@
 </p>
 
 <p align="center">
-  <a href="https://pub.dev/packages/rivium_auth"><img src="https://img.shields.io/pub/v/rivium_auth.svg" alt="pub.dev" /></a>
   <img src="https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart&logoColor=white" alt="Dart 3.0+" />
   <img src="https://img.shields.io/badge/Flutter-3.13+-02569B?logo=flutter&logoColor=white" alt="Flutter 3.13+" />
   <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20macOS%20%7C%20Web%20%7C%20Desktop-lightgrey" alt="Platforms" />
@@ -22,15 +21,13 @@
 
 ## Installation
 
+The package is published on [Rivium Center](https://center.rivium.co):
+
 ```yaml
 dependencies:
-  rivium_auth: ^0.1.1
-```
-
-Or run:
-
-```bash
-flutter pub add rivium_auth
+  rivium_auth:
+    hosted: https://center.rivium.co/api/packages/rivium/pub
+    version: ^0.2.0
 ```
 
 Turn on Rivium Auth and the sign-in methods you want in the Rivium Console.
@@ -130,6 +127,21 @@ await auth.getMe();             // fresh profile
 await auth.signOut();           // this device; never fails
 await auth.signOutEverywhere(); // all devices
 await auth.deleteAccount();     // required by the App Store for apps with sign-in
+```
+
+## Custom claims
+
+Your server sets custom claims for a user with the server secret (`setCustomUserClaims`, see
+[Custom claims](https://rivium.co/docs/auth/custom-claims)), for example `{ "plan": "pro" }`. Every token of the
+user carries them, and Rivium Sync rules read them as `auth.token.plan`. In the app, read them to show things
+(a "Pro" badge): access is still decided on the server.
+
+```dart
+final result = await auth.getTokenResult();
+if (result?.claims['plan'] == 'pro') showProBadge();
+
+// Right after your server changed the claims ("Check my purchase"):
+await auth.getTokenResult(forceRefresh: true);
 ```
 
 ## Errors
