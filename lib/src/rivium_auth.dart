@@ -123,6 +123,7 @@ class RiviumAuth {
 
   final _changes = StreamController<RiviumAuthUser?>.broadcast();
 
+  String? _languageCode;
   String? _refreshToken;
   String? _accessToken;
   DateTime? _accessExpiresAt;
@@ -136,6 +137,31 @@ class RiviumAuth {
 
   String get _refreshKey => '$_keyPrefix.refresh';
   String get _userKey => '$_keyPrefix.user';
+
+  /// The Rivium Auth server this client talks to.
+  String get baseUrl => _baseUrl;
+
+  // ── Language ────────────────────────────────────────────────────────────
+
+  static final _languageTag = RegExp(r'^[A-Za-z]{2,8}([-_][A-Za-z0-9]{1,8})*$');
+
+  /// The language of the e-mails Rivium sends this user (confirm e-mail,
+  /// password reset, magic link), like Firebase's `languageCode`: a BCP 47 tag
+  /// such as `de` or `en-US`. null = the project's template language (Console ›
+  /// Rivium Auth › Email templates). A language Rivium has no texts for also
+  /// falls back to the template language.
+  String? get languageCode => _languageCode;
+
+  /// Sets [languageCode], like Firebase's `setLanguageCode`. null clears it. A
+  /// value that is not a language tag is ignored (clears it).
+  Future<void> setLanguageCode(String? languageCode) async {
+    final v = languageCode?.trim() ?? '';
+    _languageCode = v.length >= 2 && v.length <= 35 && _languageTag.hasMatch(v) ? v : null;
+  }
+
+  /// Sets [languageCode] to the phone's language.
+  Future<void> useDeviceLanguage() =>
+      setLanguageCode(PlatformDispatcher.instance.locale.toLanguageTag());
 
   // ── State ───────────────────────────────────────────────────────────────
 
@@ -368,11 +394,14 @@ class RiviumAuth {
       _sessionCall('POST', '/v1/password/sign-in',
           {'email': email, 'password': password});
 
-  /// Sends a password reset link to [redirectUrl] + `?token=...`. Always
-  /// succeeds, whether or not the address has an account.
-  Future<void> sendPasswordReset(String email, {required String redirectUrl}) =>
-      _send('POST', '/v1/password/forgot',
-          body: {'email': email, 'redirectUrl': redirectUrl});
+  /// Sends a password reset link to [redirectUrl] + `?token=...`, or to
+  /// Rivium's own reset page when [redirectUrl] is null. Always succeeds,
+  /// whether or not the address has an account.
+  Future<void> sendPasswordReset(String email, {String? redirectUrl}) =>
+      _send('POST', '/v1/password/forgot', body: {
+        'email': email,
+        if (redirectUrl != null) 'redirectUrl': redirectUrl,
+      });
 
   /// Sets a new password with the token from the reset link. Ends every
   /// session of that user; it does not sign in.
@@ -602,6 +631,7 @@ class RiviumAuth {
       ..headers['x-rivium-sdk'] = riviumAuthSdkHeader
       ..headers['accept'] = 'application/json';
     if (bearer != null) req.headers['authorization'] = 'Bearer $bearer';
+    if (_languageCode != null) req.headers['x-rivium-locale'] = _languageCode!;
     if (body != null) {
       req.headers['content-type'] = 'application/json';
       req.body = jsonEncode(body);

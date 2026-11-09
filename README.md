@@ -21,13 +21,15 @@
 
 ## Installation
 
-The package is published on [Rivium Center](https://center.rivium.co):
-
 ```yaml
 dependencies:
-  rivium_auth:
-    hosted: https://center.rivium.co/api/packages/rivium/pub
-    version: ^0.2.0
+  rivium_auth: ^0.1.1
+```
+
+Or run:
+
+```bash
+flutter pub add rivium_auth
 ```
 
 Turn on Rivium Auth and the sign-in methods you want in the Rivium Console.

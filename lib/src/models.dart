@@ -194,14 +194,8 @@ class RiviumTokenResult {
     final exp = at(payload['exp']);
     final iat = at(payload['iat']);
     if (exp == null || iat == null) return null;
-    // `meta` is Rivium's own bookkeeping for its servers, not a claim. Custom
-    // claims come at the top level; a server that nests them under `claims`
-    // gets them spread out too (token fields always win over a custom claim).
-    final nested = payload['claims'];
-    final claims = <String, dynamic>{
-      if (nested is Map) ...nested.map((k, v) => MapEntry('$k', v)),
-      ...Map<String, dynamic>.of(payload)..remove('meta')..remove('claims'),
-    };
+    // `meta` is Rivium's own bookkeeping for its servers, not a claim.
+    final claims = Map<String, dynamic>.of(payload)..remove('meta');
     final amr = payload['amr'];
     return RiviumTokenResult(
       token: token,

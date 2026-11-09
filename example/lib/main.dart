@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:rivium_auth/rivium_auth.dart';
+import 'package:rivium_auth/rivium_auth_ui.dart';
 
 // Rivium Auth — Flutter example (SDK 0.1.1)
 //
@@ -37,6 +37,7 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   final _apiKey = TextEditingController(text: _apiKeyPlaceholder);
+  final _server = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
 
@@ -56,6 +57,7 @@ class _AuthPageState extends State<AuthPage> {
   void dispose() {
     _sub?.cancel();
     _apiKey.dispose();
+    _server.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -69,7 +71,8 @@ class _AuthPageState extends State<AuthPage> {
     }
     await _sub?.cancel();
     // Restores the session saved on this device; makes no network call.
-    final auth = await RiviumAuth.initialize(key);
+    final server = _server.text.trim();
+    final auth = await RiviumAuth.initialize(key, baseUrl: server.isEmpty ? null : server);
     // Emits on sign-in, sign-out and when a session ends.
     _sub = auth.authStateChanges.listen((user) {
       if (mounted) setState(() => _user = user);
@@ -123,6 +126,13 @@ class _AuthPageState extends State<AuthPage> {
               autocorrect: false,
               decoration: const InputDecoration(labelText: 'Public API key (rv_live_...)'),
             ),
+            // Optional: another Auth server, for example one you run yourself. Empty = the default server.
+            TextField(
+              controller: _server,
+              autocorrect: false,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(labelText: 'Server URL (optional)'),
+            ),
             const SizedBox(height: 8),
             OutlinedButton(onPressed: _configure, child: const Text('Configure')),
             const SizedBox(height: 16),
@@ -136,6 +146,20 @@ class _AuthPageState extends State<AuthPage> {
               Text(_status, style: TextStyle(color: Theme.of(context).colorScheme.outline)),
             ],
             const Divider(height: 32),
+            // The ready-made screen: no forms to build. It shows the methods turned on in the Console.
+            FilledButton.icon(
+              icon: const Icon(Icons.login),
+              onPressed: () => _run((auth) async {
+                final user = await RiviumSignIn.show(
+                  context,
+                  auth: auth,
+                  options: const RiviumSignInOptions(appName: 'Example', allowGuest: true),
+                );
+                return user == null ? 'Closed.' : 'Signed in with the ready-made screen.';
+              }),
+              label: const Text('Open the ready-made sign-in screen'),
+            ),
+            const SizedBox(height: 8),
             FilledButton(
               onPressed: () => _run((auth) async {
                 await auth.signInAnonymously();

@@ -34,13 +34,13 @@ void main() {
       ...standard,
       'plan': 'pro',
       'team': {'id': 't1', 'role': 'editor'},
-      'نقش': 'مدیر 👋'
+      '役割': '管理者 👋'
     });
     final r = RiviumTokenResult.fromToken(token)!;
     expect(r.token, token);
     expect(r.claims['plan'], 'pro');
     expect(r.claims['team'], {'id': 't1', 'role': 'editor'});
-    expect(r.claims['نقش'], 'مدیر 👋');
+    expect(r.claims['役割'], '管理者 👋');
     expect(r.claims['sub'], 'ru_user1');
     expect(r.claims.containsKey('meta'), isFalse);
     expect(r.expirationTime, at(now + 3600));
@@ -88,16 +88,5 @@ void main() {
         'free'); // the same token until it is renewed
     expect(
         (await auth.getTokenResult(forceRefresh: true))!.claims['plan'], 'pro');
-  });
-
-  test('custom claims nested under `claims` (Rivium server) come out by name; token fields win', () {
-    final r = RiviumTokenResult.fromToken(jwt({
-      ...(Map.of(standard)..remove('auth_time')),
-      'claims': {'levels': ['A1'], 'sub': 'someone-else'},
-    }))!;
-    expect(r.claims['levels'], ['A1']);
-    expect(r.claims['sub'], 'ru_user1');
-    expect(r.claims.containsKey('claims'), isFalse);
-    expect(r.authTime, r.issuedAtTime); // no auth_time: the issue time
   });
 }

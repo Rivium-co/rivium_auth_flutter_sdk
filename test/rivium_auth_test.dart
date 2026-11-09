@@ -402,6 +402,36 @@ void main() {
     });
   });
 
+  group('e-mail language', () {
+    test('languageCode is sent as x-rivium-locale only when set', () async {
+      server.handler = (req) async => http.Response('', 202);
+      final a = await auth();
+      expect(a.languageCode, isNull);
+      await a.sendMagicLink('a@example.com', redirectUrl: 'https://app.example.com/magic');
+      await a.setLanguageCode('de');
+      await a.sendMagicLink('a@example.com', redirectUrl: 'https://app.example.com/magic');
+      await a.setLanguageCode(null);
+      await a.sendMagicLink('a@example.com', redirectUrl: 'https://app.example.com/magic');
+      expect(server.to('/v1/magic-link/send').map((r) => r.headers['x-rivium-locale']).toList(), [null, 'de', null]);
+    });
+
+    test('values that are not a language tag are ignored', () async {
+      final a = await auth();
+      for (final bad in ['', 'x', 'de\r\nX: y', 'x' * 40, '12']) {
+        await a.setLanguageCode(bad);
+        expect(a.languageCode, isNull, reason: bad);
+      }
+      await a.setLanguageCode('de-AT');
+      expect(a.languageCode, 'de-AT');
+    });
+
+    test("useDeviceLanguage() takes the phone's language", () async {
+      final a = await auth();
+      await a.useDeviceLanguage();
+      expect(a.languageCode, isNotNull);
+    });
+  });
+
   group('sdk header', () {
     test('every request carries X-Rivium-SDK: auth-flutter/<version>', () async {
       server.handler = (req) async => json(server.session());
@@ -409,7 +439,7 @@ void main() {
       await a.signInAnonymously();
       expect(server.requests, isNotEmpty);
       for (final r in server.requests) {
-        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.2.0');
+        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.4.0');
       }
     });
 
