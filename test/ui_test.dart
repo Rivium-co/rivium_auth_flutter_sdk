@@ -316,9 +316,9 @@ void main() {
         options: RiviumSignInOptions(openUrl: (u) async => opened.add(u)));
     await tester.pumpAndSettle();
     await tap(tester, 'rivium-telegram');
-    await enter(tester, 'rivium-phone', '+98 912 345-6789');
+    await enter(tester, 'rivium-phone', '+44 7700 900-123');
     await tap(tester, 'rivium-send-code');
-    expect(f.bodies('/v1/telegram/code').single, {'phone': '+989123456789'});
+    expect(f.bodies('/v1/telegram/code').single, {'phone': '+447700900123'});
     expect(find.textContaining('@tikashop_bot'), findsOneWidget);
     await tester.tap(find.text('https://t.me/tikashop_bot'));
     await tester.pumpAndSettle();
@@ -340,7 +340,7 @@ void main() {
     await pumpScreen(tester, await client(f), options: RiviumSignInOptions(openUrl: (u) async => opened.add(u)));
     await tester.pumpAndSettle();
     await tap(tester, 'rivium-telegram');
-    await enter(tester, 'rivium-phone', '+989123456789');
+    await enter(tester, 'rivium-phone', '+447700900123');
     await tap(tester, 'rivium-send-code');
     expect(find.textContaining('javascript'), findsNothing);
     expect(opened, isEmpty);
