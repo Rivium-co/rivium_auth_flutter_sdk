@@ -67,6 +67,19 @@ class RiviumSignInController extends ChangeNotifier {
   /// The message for [error], in the screen's language.
   String? get errorText => _error == null ? null : strings.error(_error!);
 
+  /// A note shown on the screen, for example that a new link was sent.
+  String? _notice;
+  String? get notice => _notice;
+
+  /// Whether a new confirmation link is being sent.
+  bool _resending = false;
+  bool get resending => _resending;
+
+  /// Signing in failed because the e-mail is not confirmed yet: the screen
+  /// offers to send the link again.
+  bool get canResend =>
+      _error == RiviumAuthErrorCode.emailNotVerified && showPassword;
+
   RiviumSentKind? _sent;
   RiviumSentKind? get sent => _sent;
 
@@ -137,6 +150,7 @@ class RiviumSignInController extends ChangeNotifier {
   /// Opens [view], clearing the last error.
   void go(RiviumSignInView view) {
     _error = null;
+    _notice = null;
     emailError = null;
     passwordError = null;
     if (view == RiviumSignInView.telegramPhone) {
@@ -160,7 +174,8 @@ class RiviumSignInController extends ChangeNotifier {
       final r = await auth.signUpWithEmail(
         email: email.trim(),
         password: password,
-        redirectUrl: options.verifyRedirectUrl ?? '${auth.baseUrl}/pages/verify',
+        redirectUrl: _verifyRedirectUrl,
+        continueUrl: options.continueUrl,
       );
       final user = r.user;
       if (user != null) return _done(user);
@@ -181,11 +196,45 @@ class RiviumSignInController extends ChangeNotifier {
     await _run(() async {
       // No URL of the app's own: the server uses Rivium's reset page.
       await auth.sendPasswordReset(email.trim(),
-          redirectUrl: options.resetRedirectUrl);
+          redirectUrl: options.resetRedirectUrl,
+          continueUrl: options.continueUrl);
       _sent = RiviumSentKind.reset;
       _set(view: RiviumSignInView.sent);
     });
   }
+
+  /// Sends the confirmation link again with the e-mail and password typed,
+  /// after signing in answered that the e-mail is not confirmed yet.
+  /// The "confirm your e-mail" message stays while it runs.
+  Future<void> resendVerification() async {
+    if (_busy) return;
+    final e = email.trim();
+    if (!_emailShape.hasMatch(e) || password.isEmpty) {
+      _checkEmail(needPassword: true);
+      return;
+    }
+    _resending = true;
+    _set(busy: true);
+    try {
+      await auth.resendVerification(
+        email: e,
+        password: password,
+        redirectUrl: _verifyRedirectUrl,
+        continueUrl: options.continueUrl,
+      );
+      _error = null;
+      _notice = strings['resent'].replaceAll('{email}', '\u2068$e\u2069');
+    } catch (err) {
+      _error = errorCodeOf(err);
+    } finally {
+      _resending = false;
+      _set(busy: false);
+    }
+  }
+
+  /// The confirm link's page: the app's own, else Rivium's.
+  String get _verifyRedirectUrl =>
+      options.verifyRedirectUrl ?? '${auth.baseUrl}/pages/verify';
 
   Future<void> sendMagicLink() async {
     if (!_checkEmail()) return;
@@ -268,6 +317,7 @@ class RiviumSignInController extends ChangeNotifier {
             : strings['badEmail'];
     passwordError = needPassword && password.isEmpty ? strings['required'] : null;
     _error = null;
+    _notice = null;
     _set();
     return emailError == null && passwordError == null;
   }
@@ -281,6 +331,7 @@ class RiviumSignInController extends ChangeNotifier {
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
     _error = null;
+    _notice = null;
     _set(busy: true);
     try {
       await action();

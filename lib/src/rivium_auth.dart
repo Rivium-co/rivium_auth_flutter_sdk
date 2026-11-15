@@ -365,16 +365,20 @@ class RiviumAuth {
   /// Creates an e-mail + password account. When the project requires a
   /// confirmed e-mail, the user is not signed in yet ([RiviumSignUpResult.user]
   /// is null). [redirectUrl] (one of the project's allowed redirect URLs)
-  /// receives the confirmation link.
+  /// receives the confirmation link; without it Rivium's own confirm page
+  /// does. [continueUrl] (one of the project's allowed redirect URLs): where
+  /// the "Continue" button of Rivium's page takes the user afterwards.
   Future<RiviumSignUpResult> signUpWithEmail({
     required String email,
     required String password,
     String? redirectUrl,
+    String? continueUrl,
   }) async {
     final json = _asMap(await _send('POST', '/v1/password/sign-up', body: {
       'email': email,
       'password': password,
       if (redirectUrl != null) 'redirectUrl': redirectUrl,
+      if (continueUrl != null) 'continueUrl': continueUrl,
     }));
     final session = json['session'];
     final user = session is Map<String, dynamic>
@@ -396,11 +400,15 @@ class RiviumAuth {
 
   /// Sends a password reset link to [redirectUrl] + `?token=...`, or to
   /// Rivium's own reset page when [redirectUrl] is null. Always succeeds,
-  /// whether or not the address has an account.
-  Future<void> sendPasswordReset(String email, {String? redirectUrl}) =>
+  /// whether or not the address has an account. [continueUrl] (one of the
+  /// project's allowed redirect URLs): where the "Continue" button of Rivium's
+  /// page takes the user after the new password is saved.
+  Future<void> sendPasswordReset(String email,
+          {String? redirectUrl, String? continueUrl}) =>
       _send('POST', '/v1/password/forgot', body: {
         'email': email,
         if (redirectUrl != null) 'redirectUrl': redirectUrl,
+        if (continueUrl != null) 'continueUrl': continueUrl,
       });
 
   /// Sets a new password with the token from the reset link. Ends every
@@ -421,10 +429,37 @@ class RiviumAuth {
     }
   }
 
-  /// Sends the signed-in user a new confirmation link.
-  Future<void> sendEmailVerification({required String redirectUrl}) =>
-      _authed('POST', '/v1/email/send-verification',
-          body: {'redirectUrl': redirectUrl});
+  /// Sends the signed-in user a new confirmation link, to [redirectUrl] +
+  /// `?token=...` or, when [redirectUrl] is null, to Rivium's own confirm page.
+  /// [continueUrl] (one of the project's allowed redirect URLs): where the
+  /// "Continue" button of Rivium's page takes the user afterwards.
+  Future<void> sendEmailVerification(
+          {String? redirectUrl, String? continueUrl}) =>
+      _authed('POST', '/v1/email/send-verification', body: {
+        if (redirectUrl != null) 'redirectUrl': redirectUrl,
+        if (continueUrl != null) 'continueUrl': continueUrl,
+      });
+
+  /// Sends the confirmation link again to someone who can't sign in yet
+  /// because the project requires a confirmed e-mail (signing in failed with
+  /// [RiviumAuthErrorCode.emailNotVerified]). The e-mail and password prove
+  /// the account; a wrong pair fails like signing in
+  /// ([RiviumAuthErrorCode.invalidCredentials]). Nothing is sent to an
+  /// already confirmed account. Does not sign in.
+  ///
+  /// [redirectUrl] and [continueUrl] work as in [sendEmailVerification].
+  Future<void> resendVerification({
+    required String email,
+    required String password,
+    String? redirectUrl,
+    String? continueUrl,
+  }) =>
+      _send('POST', '/v1/email/resend-verification', body: {
+        'email': email,
+        'password': password,
+        if (redirectUrl != null) 'redirectUrl': redirectUrl,
+        if (continueUrl != null) 'continueUrl': continueUrl,
+      });
 
   /// E-mails a sign-in link to [redirectUrl] + `?token=...`. The account is
   /// created on first use.

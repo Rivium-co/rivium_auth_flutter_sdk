@@ -383,6 +383,110 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
   });
 
+  testWidgets('e-mail not confirmed: "Send again" sends the typed e-mail and password, then says so', (tester) async {
+    final f = Fake(['password']);
+    f.answers['/v1/password/sign-in'] = (b) => err('EMAIL_NOT_VERIFIED', 403);
+    final sent = Completer<void>();
+    f.answers['/v1/email/resend-verification'] = (b) => res({'ok': true}, 202);
+    final signedIn = await pumpScreen(tester, await client(f));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('rivium-resend')), findsNothing);
+    await enter(tester, 'rivium-email', ' ali@example.com ');
+    await enter(tester, 'rivium-password', 'a-good-password');
+    await tap(tester, 'rivium-sign-in');
+    expect(find.text('Confirm your e-mail first. Check your inbox.'), findsOneWidget);
+    expect(find.text('Send again'), findsOneWidget);
+
+    // Busy while it is sent: the button is off and shows a spinner.
+    f.gate = sent.future;
+    await tester.tap(find.byKey(const ValueKey('rivium-resend')));
+    await tester.pump();
+    final button = tester.widget<ButtonStyleButton>(find.byKey(const ValueKey('rivium-resend')));
+    expect(button.onPressed, isNull);
+    expect(find.descendant(of: find.byKey(const ValueKey('rivium-resend')), matching: find.byType(CircularProgressIndicator)),
+        findsOneWidget);
+    sent.complete();
+    await tester.pumpAndSettle();
+
+    expect(f.bodies('/v1/email/resend-verification').single, {
+      'email': 'ali@example.com',
+      'password': 'a-good-password',
+      'redirectUrl': 'https://auth.example.test/pages/verify',
+    });
+    expect(find.byKey(const ValueKey('rivium-notice')), findsOneWidget);
+    expect(find.textContaining('We sent a new link to'), findsOneWidget);
+    expect(find.textContaining('ali@example.com'), findsWidgets);
+    expect(find.byKey(const ValueKey('rivium-sign-in-error')), findsNothing);
+    expect(find.byKey(const ValueKey('rivium-resend')), findsNothing);
+    expect(await signedIn(), isNull);
+  });
+
+  testWidgets('"Send again" too often: the too-many message', (tester) async {
+    final f = Fake(['password']);
+    f.answers['/v1/password/sign-in'] = (b) => err('EMAIL_NOT_VERIFIED', 403);
+    f.answers['/v1/email/resend-verification'] = (b) => err('RATE_LIMITED', 429);
+    await pumpScreen(tester, await client(f));
+    await tester.pumpAndSettle();
+    await enter(tester, 'rivium-email', 'ali@example.com');
+    await enter(tester, 'rivium-password', 'a-good-password');
+    await tap(tester, 'rivium-sign-in');
+    await tap(tester, 'rivium-resend');
+    expect(find.text('Too many tries. Wait a little and try again.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('rivium-notice')), findsNothing);
+  });
+
+  testWidgets('"Send again" with a wrong password: the sign-in message', (tester) async {
+    final f = Fake(['password']);
+    f.answers['/v1/password/sign-in'] = (b) => err('EMAIL_NOT_VERIFIED', 403);
+    f.answers['/v1/email/resend-verification'] = (b) => err('INVALID_CREDENTIALS', 401);
+    await pumpScreen(tester, await client(f));
+    await tester.pumpAndSettle();
+    await enter(tester, 'rivium-email', 'ali@example.com');
+    await enter(tester, 'rivium-password', 'a-good-password');
+    await tap(tester, 'rivium-sign-in');
+    await enter(tester, 'rivium-password', 'another-password');
+    await tap(tester, 'rivium-resend');
+    expect(f.bodies('/v1/email/resend-verification').single['password'], 'another-password');
+    expect(find.text('Wrong e-mail or password.'), findsOneWidget);
+  });
+
+  testWidgets('continueUrl and the app’s confirm page go to sign-up, forgot password and "Send again"', (tester) async {
+    final f = Fake(['password']);
+    f.answers['/v1/password/sign-in'] = (b) => err('EMAIL_NOT_VERIFIED', 403);
+    f.answers['/v1/email/resend-verification'] = (b) => res({'ok': true}, 202);
+    f.answers['/v1/password/forgot'] = (b) => http.Response('', 202);
+    f.answers['/v1/password/sign-up'] = (b) => res({'userId': 'u9', 'verificationSent': true, 'session': null});
+    await pumpScreen(tester, await client(f),
+        options: const RiviumSignInOptions(
+            continueUrl: 'https://app.example.com/welcome', verifyRedirectUrl: 'https://app.example.com/verify'));
+    await tester.pumpAndSettle();
+    await enter(tester, 'rivium-email', 'ali@example.com');
+    await enter(tester, 'rivium-password', 'a-good-password');
+    await tap(tester, 'rivium-sign-in');
+    await tap(tester, 'rivium-resend');
+    expect(f.bodies('/v1/email/resend-verification').single, {
+      'email': 'ali@example.com',
+      'password': 'a-good-password',
+      'redirectUrl': 'https://app.example.com/verify',
+      'continueUrl': 'https://app.example.com/welcome',
+    });
+    await tap(tester, 'rivium-forgot');
+    await tap(tester, 'rivium-forgot-send');
+    expect(f.bodies('/v1/password/forgot').single, {'email': 'ali@example.com', 'continueUrl': 'https://app.example.com/welcome'});
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    await tap(tester, 'rivium-to-sign-up');
+    await enter(tester, 'rivium-sign-up-email', 'new@example.com');
+    await enter(tester, 'rivium-sign-up-password', 'a-good-password');
+    await tap(tester, 'rivium-sign-up');
+    expect(f.bodies('/v1/password/sign-up').single, {
+      'email': 'new@example.com',
+      'password': 'a-good-password',
+      'redirectUrl': 'https://app.example.com/verify',
+      'continueUrl': 'https://app.example.com/welcome',
+    });
+  });
+
   group('RiviumSignIn.show', () {
     Future<Future<RiviumAuthUser?>> open(WidgetTester tester, RiviumAuth auth, Size size) async {
       tester.view.physicalSize = size;

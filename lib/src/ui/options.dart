@@ -43,6 +43,7 @@ class RiviumSignInOptions {
     this.magicLinkRedirectUrl,
     this.verifyRedirectUrl,
     this.resetRedirectUrl,
+    this.continueUrl,
     this.openUrl,
   });
 
@@ -78,6 +79,11 @@ class RiviumSignInOptions {
 
   /// Where the password reset link goes. Null: Rivium's own reset page.
   final String? resetRedirectUrl;
+
+  /// Where the "Continue" button of Rivium's confirm and reset pages takes the
+  /// user afterwards, for example back to your app or site. One of the
+  /// project's allowed redirect URLs. Null: no button.
+  final String? continueUrl;
 
   /// Opens the Telegram bot link.
   final RiviumOpenUrl? openUrl;

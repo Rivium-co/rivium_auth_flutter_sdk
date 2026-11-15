@@ -69,6 +69,8 @@ class RiviumSignInStrings {
     'linkSent': 'We sent a sign-in link to {email}. Open it on this device.',
     'verifySent':
         'We sent a confirmation link to {email}. Confirm your e-mail, then sign in.',
+    'resend': 'Send again',
+    'resent': 'We sent a new link to {email}.',
     'codeSent': 'Enter the code Telegram sent you.',
     'botFirst':
         'Open {bot} in Telegram once and share your phone number, then try again.',

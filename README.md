@@ -23,7 +23,7 @@
 
 ```yaml
 dependencies:
-  rivium_auth: ^0.1.1
+  rivium_auth: ^0.5.0
 ```
 
 Or run:
@@ -65,6 +65,37 @@ await RiviumSync.init(RiviumSyncConfig(
 Rivium Chat takes `RiviumAuth.instance.chatTokenProvider`. Use `currentUser.id` as the user id. Call the other
 SDK's refresh method (for example `RiviumSync.refreshUserToken()`) after a sign-in or sign-out.
 
+## Ready-made sign-in screen
+
+Like FirebaseUI: Rivium's sign-in screen, with no forms to build. It shows only the methods turned on in the Console
+and answers the signed-in user, or null when the user closed it.
+
+```dart
+import 'package:rivium_auth/rivium_auth_ui.dart';
+
+final user = await RiviumSignIn.show(
+  context,
+  options: const RiviumSignInOptions(appName: 'My Shop'),
+);
+```
+
+It opens as a dialog on wide screens and full screen on phones. To put the form on a page of your own, use
+`RiviumSignInScreen(onSignedIn: (user) { ... })`.
+
+| Option | What it does |
+|---|---|
+| `appName`, `logo` | The title ("Sign in to My Shop") and an image above it |
+| `languageCode` | The language of the e-mails sent from the screen (the screen itself is in English). Default: the app's language. Ignored when you set `languageCode` on the client yourself |
+| `allowGuest` | Shows "Continue as guest" when anonymous sign-in is on. Off by default: every guest is a new user and counts toward your plan |
+| `google`, `apple` | A function that gets an ID token for the hashed nonce it is given (for example with google_sign_in or sign_in_with_apple). The button shows only when you pass it |
+| `magicLinkRedirectUrl` | A link that opens your app; shows the magic link button. Finish it with `signInWithMagicLink(token)` |
+| `verifyRedirectUrl`, `resetRedirectUrl` | Your own pages for the confirm and reset links. Default: Rivium's pages |
+| `continueUrl` | Where the "Continue" button of Rivium's confirm and reset pages takes the user afterwards (one of the project's redirect URLs) |
+| `openUrl` | Opens the Telegram bot link (for example with url_launcher); without it the link is shown to copy |
+
+The screen follows your app's `Theme`. When the project requires a confirmed e-mail and the user signs in before
+confirming, the screen offers "Send again", which sends a new confirmation link.
+
 ## Sign-in methods
 
 ```dart
@@ -80,6 +111,37 @@ final methods = await auth.getMethods(); // only show the buttons the project of
 ```
 
 Redirect URLs must be in the project's allowed list. The link opens with `?token=...`.
+
+### Confirming the e-mail
+
+When the project requires a confirmed e-mail, `signUpWithEmail` does not sign in, and `signInWithEmail` fails with
+`EMAIL_NOT_VERIFIED` until the link in the e-mail is opened. Send the link again with the e-mail and password the
+user typed; it does not sign in, and a wrong pair fails like signing in (`INVALID_CREDENTIALS`):
+
+```dart
+try {
+  await auth.signInWithEmail(email: email, password: password);
+} on RiviumAuthException catch (e) {
+  if (e.code == RiviumAuthErrorCode.emailNotVerified) {
+    await auth.resendVerification(email: email, password: password);
+  }
+}
+
+// A signed-in user whose e-mail is not confirmed yet:
+await auth.sendEmailVerification();
+```
+
+Without `redirectUrl` the link opens Rivium's own confirm page. `continueUrl` (like Firebase's continue URL) adds a
+"Continue" button to Rivium's confirm and reset pages that takes the user back to your app or site. It must be one
+of the project's redirect URLs. `signUpWithEmail`, `sendEmailVerification`, `resendVerification` and
+`sendPasswordReset` take it:
+
+```dart
+await auth.signUpWithEmail(email: email, password: password, continueUrl: 'https://myapp.com/welcome');
+await auth.sendPasswordReset(email, continueUrl: 'https://myapp.com/sign-in');
+```
+
+For development, the redirect URLs may include `http://localhost:<port>` and `http://127.0.0.1:<port>`.
 
 ### Apple and Google
 
@@ -145,6 +207,18 @@ if (result?.claims['plan'] == 'pro') showProBadge();
 // Right after your server changed the claims ("Check my purchase"):
 await auth.getTokenResult(forceRefresh: true);
 ```
+
+## E-mail language
+
+Confirm e-mail, password reset and magic-link e-mails go out in the language you set, like Firebase's `languageCode`.
+Unset, the project's template language from the Console applies. Edit the texts in **Console › Rivium Auth › Email
+templates**.
+
+```dart
+await RiviumAuth.instance.setLanguageCode('de'); // or useDeviceLanguage()
+```
+
+See [Email templates](https://rivium.co/docs/auth/email-templates).
 
 ## Errors
 

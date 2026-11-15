@@ -22,7 +22,36 @@ class RiviumHomeView extends StatelessWidget {
         RiviumScreenHeader(title: c.title, logo: c.options.logo),
         const SizedBox(height: 20),
         RiviumErrorBanner(text: c.errorText),
+        if (c.canResend)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              key: const ValueKey('rivium-resend'),
+              onPressed: c.busy ? null : c.resendVerification,
+              icon: c.resending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh, size: 18),
+              label: Text(s['resend']),
+            ),
+          ),
         if (c.errorText != null) const SizedBox(height: 12),
+        if (c.notice != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(c.notice!,
+                key: const ValueKey('rivium-notice'),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSecondaryContainer)),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (c.showPassword) ...[
           AutofillGroup(
             child: Column(

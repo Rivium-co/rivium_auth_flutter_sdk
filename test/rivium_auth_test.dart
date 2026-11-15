@@ -432,6 +432,109 @@ void main() {
     });
   });
 
+  group('e-mail links', () {
+    Map<String, dynamic> body(String path) => jsonDecode(server.to(path).single.body) as Map<String, dynamic>;
+
+    test('resendVerification posts e-mail + password with the public key, no Bearer, and does not sign in', () async {
+      server.handler = (req) async => json({'ok': true}, 202);
+      final a = await auth();
+      await a.resendVerification(email: 'a@b.co', password: 'pw-123456');
+      final req = server.to('/v1/email/resend-verification').single;
+      expect(req.method, 'POST');
+      expect(req.headers['x-api-key'], 'rv_live_test');
+      expect(req.headers['authorization'], isNull);
+      expect(body('/v1/email/resend-verification'), {'email': 'a@b.co', 'password': 'pw-123456'});
+      expect(a.isSignedIn, isFalse);
+      expect(storage.values, isEmpty);
+    });
+
+    test('resendVerification sends redirectUrl and continueUrl when given', () async {
+      server.handler = (req) async => json({'ok': true}, 202);
+      final a = await auth();
+      await a.resendVerification(
+          email: 'a@b.co',
+          password: 'pw-123456',
+          redirectUrl: 'https://app.example/verify',
+          continueUrl: 'https://app.example/welcome');
+      expect(body('/v1/email/resend-verification'), {
+        'email': 'a@b.co',
+        'password': 'pw-123456',
+        'redirectUrl': 'https://app.example/verify',
+        'continueUrl': 'https://app.example/welcome',
+      });
+    });
+
+    test('resendVerification keeps the signed-in user as is', () async {
+      server.handler = (req) async =>
+          req.url.path == '/v1/anonymous' ? json(server.session()) : json({'ok': true}, 202);
+      final a = await auth();
+      final user = await a.signInAnonymously();
+      await a.resendVerification(email: 'a@b.co', password: 'pw-123456');
+      expect(a.currentUser, user);
+      expect(server.to('/v1/email/resend-verification').single.headers['authorization'], isNull);
+    });
+
+    for (final (code, status) in [
+      ('INVALID_CREDENTIALS', 401),
+      ('USER_DISABLED', 403),
+      ('RATE_LIMITED', 429),
+      ('INVALID_INPUT', 400),
+      ('METHOD_DISABLED', 400),
+    ]) {
+      test('resendVerification throws $code from the server', () async {
+        server.handler = (req) async => json({'code': code, 'message': 'hint'}, status);
+        final a = await auth();
+        await expectLater(
+            a.resendVerification(email: 'a@b.co', password: 'pw-123456'),
+            throwsA(isA<RiviumAuthException>()
+                .having((e) => e.code, 'code', code)
+                .having((e) => e.statusCode, 'statusCode', status)));
+        expect(a.isSignedIn, isFalse);
+      });
+    }
+
+    test('signUpWithEmail sends continueUrl only when given', () async {
+      server.handler = (req) async => json({'userId': 'u9', 'verificationSent': true, 'session': null});
+      final a = await auth();
+      await a.signUpWithEmail(email: 'a@b.co', password: 'pw-123456');
+      await a.signUpWithEmail(email: 'c@b.co', password: 'pw-123456', continueUrl: 'https://app.example/welcome');
+      final bodies = server.to('/v1/password/sign-up').map((r) => jsonDecode(r.body)).toList();
+      expect(bodies[0], {'email': 'a@b.co', 'password': 'pw-123456'});
+      expect(bodies[1], {'email': 'c@b.co', 'password': 'pw-123456', 'continueUrl': 'https://app.example/welcome'});
+    });
+
+    test('sendPasswordReset sends continueUrl only when given', () async {
+      server.handler = (req) async => json(null, 202);
+      final a = await auth();
+      await a.sendPasswordReset('a@b.co');
+      await a.sendPasswordReset('a@b.co',
+          redirectUrl: 'https://app.example/reset', continueUrl: 'https://app.example/sign-in');
+      final bodies = server.to('/v1/password/forgot').map((r) => jsonDecode(r.body)).toList();
+      expect(bodies[0], {'email': 'a@b.co'});
+      expect(bodies[1], {
+        'email': 'a@b.co',
+        'redirectUrl': 'https://app.example/reset',
+        'continueUrl': 'https://app.example/sign-in',
+      });
+    });
+
+    test('sendEmailVerification: Bearer token, redirectUrl and continueUrl only when given', () async {
+      final s = server.session();
+      server.handler = (req) async => req.url.path == '/v1/anonymous' ? json(s) : json(null, 202);
+      final a = await auth();
+      await a.signInAnonymously();
+      await a.sendEmailVerification();
+      await a.sendEmailVerification(redirectUrl: 'https://app.example/verify', continueUrl: 'https://app.example/welcome');
+      final reqs = server.to('/v1/email/send-verification');
+      expect(reqs.first.headers['authorization'], 'Bearer ${s['accessToken']}');
+      expect(jsonDecode(reqs[0].body), <String, dynamic>{});
+      expect(jsonDecode(reqs[1].body), {
+        'redirectUrl': 'https://app.example/verify',
+        'continueUrl': 'https://app.example/welcome',
+      });
+    });
+  });
+
   group('sdk header', () {
     test('every request carries X-Rivium-SDK: auth-flutter/<version>', () async {
       server.handler = (req) async => json(server.session());
@@ -439,7 +542,7 @@ void main() {
       await a.signInAnonymously();
       expect(server.requests, isNotEmpty);
       for (final r in server.requests) {
-        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.4.0');
+        expect(r.headers['x-rivium-sdk'], 'auth-flutter/0.5.0');
       }
     });
 
